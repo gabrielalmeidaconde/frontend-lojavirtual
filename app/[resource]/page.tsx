@@ -65,8 +65,8 @@ export default function ResourcePage() {
         if (k in data) preload[k] = data[k] ?? ''
         else {
           if (resource === 'jogos') {
-            if (k === 'desenvolvedoraId') preload[k] = data?.desenvolvedora?.id ?? ''
-            if (k === 'generoIds') preload[k] = (data?.generos || []).map((g:any)=>g.id).join(',')
+            if (k === 'desenvolvedoraId') preload[k] = data?.desenvolvedoraId?.id ?? ''
+            if (k === 'generoIds') preload[k] = (data?.generoIds || []).map((g:any)=>g.id).join(',')
           }
           if (resource === 'atualizacoes') {
             if (k === 'jogoId') preload[k] = data?.jogo?.id ?? ''
