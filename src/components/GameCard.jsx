@@ -12,8 +12,11 @@ const GameCard = ({ game }) => {
   const [purchaseSuccess, setPurchaseSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const finalPrice = game.desconto > 0 
-    ? (game.preco * (1 - game.desconto / 100)).toFixed(2)
+  // Garantir que desconto existe e é um número válido
+  const desconto = game.desconto && !isNaN(game.desconto) ? Number(game.desconto) : 0;
+  
+  const finalPrice = desconto > 0 
+    ? (game.preco * (1 - desconto / 100)).toFixed(2)
     : game.preco?.toFixed(2);
 
   const handleBuyClick = () => {
@@ -54,29 +57,39 @@ const GameCard = ({ game }) => {
 
   return (
     <div className="game-card">
-      <div className="game-image">
+      <div className="game-image" onClick={() => navigate(`/game/${game.id}`)} style={{ cursor: 'pointer' }}>
         <img 
           src={game.imagemUrl || 'https://via.placeholder.com/300x400?text=Game'} 
           alt={game.nome} 
         />
-        {game.desconto > 0 && (
-          <span className="discount-badge">-{game.desconto}%</span>
+        {desconto > 0 && (
+          <span className="discount-badge">-{desconto}%</span>
         )}
       </div>
       
       <div className="game-content">
-        <h3 className="game-title">{game.nome}</h3>
-        <p className="game-genre">{game.genero?.nome || 'Gênero'}</p>
-        <p className="game-company">{game.empresa?.nome || 'Empresa'}</p>
+        <h3 className="game-title" onClick={() => navigate(`/game/${game.id}`)} style={{ cursor: 'pointer' }}>
+          {game.nome}
+        </h3>
+        <p className="game-genre">
+          {game.generos && game.generos.length > 0 
+            ? (typeof game.generos[0] === 'string' ? game.generos.join(', ') : game.generos.map(g => g.nome).join(', '))
+            : 'Gênero'}
+        </p>
+        <p className="game-company">
+          {game.desenvolvedora 
+            ? (typeof game.desenvolvedora === 'string' ? game.desenvolvedora : game.desenvolvedora.nome)
+            : 'Desenvolvedora'}
+        </p>
         <p className="game-description">{game.descricao}</p>
         
         <div className="game-footer">
           <div className="game-price">
-            {game.desconto > 0 ? (
+            {desconto > 0 ? (
               <>
                 <span className="original-price">R$ {game.preco?.toFixed(2)}</span>
                 <span className="discounted-price">
-                  R$ {(game.preco * (1 - game.desconto / 100)).toFixed(2)}
+                  R$ {(game.preco * (1 - desconto / 100)).toFixed(2)}
                 </span>
               </>
             ) : (
@@ -84,13 +97,21 @@ const GameCard = ({ game }) => {
             )}
           </div>
           
-          <button 
-            className="buy-btn" 
-            onClick={handleBuyClick}
-            disabled={buying}
-          >
-            💎 Comprar
-          </button>
+          <div className="game-actions">
+            <button 
+              className="details-btn" 
+              onClick={() => navigate(`/game/${game.id}`)}
+            >
+              📖 Detalhes
+            </button>
+            <button 
+              className="buy-btn" 
+              onClick={handleBuyClick}
+              disabled={buying}
+            >
+              💎 Comprar
+            </button>
+          </div>
         </div>
       </div>
 

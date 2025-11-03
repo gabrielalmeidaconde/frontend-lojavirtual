@@ -19,20 +19,18 @@ const Admin = () => {
     preco: '',
     desconto: 0,
     imagemUrl: '',
-    generoId: '',
-    empresaId: ''
+    generoIds: [],
+    desenvolvedoraId: ''
   });
 
-  // Estados para Gênero
-  const [generoForm, setGeneroForm] = useState({
-    nome: '',
-    descricao: ''
-  });
+  const [editingJogo, setEditingJogo] = useState(null);
 
-  // Estados para Empresa
-  const [empresaForm, setEmpresaForm] = useState({
-    nome: ''
-  });
+  // Estados para criação rápida no formulário de jogos
+  const [showNovaEmpresaModal, setShowNovaEmpresaModal] = useState(false);
+  const [showNovoGeneroModal, setShowNovoGeneroModal] = useState(false);
+  const [novaEmpresaNome, setNovaEmpresaNome] = useState('');
+  const [novoGeneroNome, setNovoGeneroNome] = useState('');
+  const [novoGeneroDescricao, setNovoGeneroDescricao] = useState('');
 
   // Estados para Atualização
   const [atualizacaoForm, setAtualizacaoForm] = useState({
@@ -49,18 +47,24 @@ const Admin = () => {
 
   const loadData = async () => {
     try {
-      if (activeTab === 'generos') {
-        const response = await generoService.getAll();
-        setGeneros(response.data);
-      } else if (activeTab === 'empresas') {
-        const response = await empresaService.getAll();
-        setEmpresas(response.data);
-      } else if (activeTab === 'atualizacoes') {
-        const response = await atualizacaoService.getAll();
-        setAtualizacoes(response.data);
+      if (activeTab === 'atualizacoes') {
+        // Carregar atualizações e jogos para a lista de seleção
+        const [atualizacoesRes, jogosRes] = await Promise.all([
+          atualizacaoService.getAll(),
+          jogoService.getAll()
+        ]);
+        setAtualizacoes(atualizacoesRes.data);
+        setJogos(jogosRes.data);
       } else if (activeTab === 'jogos') {
-        const response = await jogoService.getAll();
-        setJogos(response.data);
+        // Carregar jogos, gêneros e empresas para os dropdowns
+        const [jogosRes, generosRes, empresasRes] = await Promise.all([
+          jogoService.getAll(),
+          generoService.getAll(),
+          empresaService.getAll()
+        ]);
+        setJogos(jogosRes.data);
+        setGeneros(generosRes.data);
+        setEmpresas(empresasRes.data);
       }
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
@@ -71,59 +75,207 @@ const Admin = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      await jogoService.create({
-        ...jogoForm,
+      const jogoData = {
+        nome: jogoForm.nome,
+        descricao: jogoForm.descricao,
         preco: parseFloat(jogoForm.preco),
         desconto: parseInt(jogoForm.desconto) || 0,
-        generoId: parseInt(jogoForm.generoId),
-        empresaId: parseInt(jogoForm.empresaId)
-      });
-      alert('Jogo criado com sucesso! 🎮');
+        imagemUrl: jogoForm.imagemUrl,
+        generoIds: jogoForm.generoIds.map(id => parseInt(id)),
+        desenvolvedoraId: parseInt(jogoForm.desenvolvedoraId)
+      };
+
+      // Validação
+      if (jogoData.generoIds.length === 0) {
+        alert('Por favor, selecione pelo menos um gênero!');
+        setLoading(false);
+        return;
+      }
+
+      console.log('📤 Enviando dados do jogo:', jogoData);
+      console.log('📝 Descrição sendo enviada:', jogoData.descricao);
+      console.log('📏 Tamanho da descrição:', jogoData.descricao?.length);
+
+      if (editingJogo) {
+        // Modo edição - PUT
+        console.log('✏️ Modo PUT - ID:', editingJogo.id);
+        const response = await jogoService.update({ id: editingJogo.id, ...jogoData });
+        console.log('✅ Resposta do PUT:', response.data);
+        alert('Jogo atualizado com sucesso! 🎮');
+        setEditingJogo(null);
+      } else {
+        // Modo criação - POST
+        console.log('➕ Modo POST');
+        const response = await jogoService.create(jogoData);
+        console.log('✅ Resposta do POST:', response.data);
+        alert('Jogo criado com sucesso! 🎮');
+      }
+
+      // Limpar formulário
       setJogoForm({
         nome: '',
         descricao: '',
         preco: '',
         desconto: 0,
         imagemUrl: '',
-        generoId: '',
-        empresaId: ''
+        generoIds: [],
+        desenvolvedoraId: ''
       });
+      loadData(); // Recarrega a lista
     } catch (error) {
-      console.error('Erro ao criar jogo:', error);
-      alert('Erro ao criar jogo: ' + (error.response?.data?.message || error.message));
+      console.error('Erro ao salvar jogo:', error);
+      alert('Erro ao salvar jogo: ' + (error.response?.data?.message || error.message));
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGeneroSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+  const handleEditJogo = (jogo) => {
+    console.log('📝 Editando jogo:', jogo);
+    setEditingJogo(jogo);
+    
+    // Extrair IDs dos gêneros (suporta array de objetos ou array de strings)
+    let generoIds = [];
+    if (jogo.generos && Array.isArray(jogo.generos)) {
+      if (jogo.generos.length > 0) {
+        if (typeof jogo.generos[0] === 'string') {
+          // Se for array de strings, precisamos buscar os IDs correspondentes
+          generoIds = generos
+            .filter(g => jogo.generos.includes(g.nome))
+            .map(g => g.id.toString());
+        } else if (typeof jogo.generos[0] === 'object') {
+          // Se for array de objetos
+          generoIds = jogo.generos.map(g => g.id.toString());
+        }
+      }
+    }
+    
+    // Extrair ID da desenvolvedora (suporta objeto ou string)
+    let desenvolvedoraId = '';
+    if (jogo.desenvolvedora) {
+      if (typeof jogo.desenvolvedora === 'string') {
+        // Se for string, buscar o ID correspondente
+        const dev = empresas.find(e => e.nome === jogo.desenvolvedora);
+        desenvolvedoraId = dev ? dev.id.toString() : '';
+      } else if (typeof jogo.desenvolvedora === 'object') {
+        // Se for objeto
+        desenvolvedoraId = jogo.desenvolvedora.id.toString();
+      }
+    }
+    
+    setJogoForm({
+      nome: jogo.nome || '',
+      descricao: jogo.descricao || '',
+      preco: jogo.preco ? jogo.preco.toString() : '',
+      desconto: jogo.desconto || 0,
+      imagemUrl: jogo.imagemUrl || '',
+      generoIds: generoIds,
+      desenvolvedoraId: desenvolvedoraId
+    });
+    
+    console.log('📋 Formulário preenchido:', {
+      nome: jogo.nome,
+      preco: jogo.preco,
+      desconto: jogo.desconto,
+      generoIds: generoIds,
+      desenvolvedoraId: desenvolvedoraId
+    });
+    
+    // Scroll para o topo do formulário
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingJogo(null);
+    setJogoForm({
+      nome: '',
+      descricao: '',
+      preco: '',
+      desconto: 0,
+      imagemUrl: '',
+      generoIds: [],
+      desenvolvedoraId: ''
+    });
+  };
+
+  const handleDeleteJogo = async (id) => {
+    if (!confirm('Tem certeza que deseja deletar este jogo?')) return;
+    
     try {
-      await generoService.create(generoForm);
-      alert('Gênero criado com sucesso! 🎯');
-      setGeneroForm({ nome: '', descricao: '' });
-      loadData(); // Recarrega a lista
+      await jogoService.delete(id);
+      loadData();
     } catch (error) {
-      console.error('Erro ao criar gênero:', error);
-      alert('Erro ao criar gênero: ' + (error.response?.data?.message || error.message));
-    } finally {
-      setLoading(false);
+      console.error('Erro ao deletar jogo:', error);
+      alert('Erro ao deletar jogo: ' + (error.response?.data?.message || error.message));
     }
   };
 
-  const handleEmpresaSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+  // Funções para criação rápida de Empresa
+  const handleCriarNovaEmpresa = async () => {
+    if (!novaEmpresaNome.trim()) {
+      alert('Por favor, digite o nome da empresa!');
+      return;
+    }
+
     try {
-      console.log('📤 Criando empresa:', empresaForm);
-      await empresaService.create(empresaForm);
-      alert('Empresa criada com sucesso! 🏢');
-      setEmpresaForm({ nome: '' });
-      loadData(); // Recarrega a lista
+      setLoading(true);
+      const response = await empresaService.create({ nome: novaEmpresaNome });
+      console.log('✅ Nova empresa criada:', response.data);
+      
+      // Recarregar lista de empresas
+      const empresasResponse = await empresaService.getAll();
+      setEmpresas(empresasResponse.data);
+      
+      // Selecionar automaticamente a nova empresa
+      const novaEmpresa = response.data;
+      setJogoForm({...jogoForm, desenvolvedoraId: novaEmpresa.id.toString()});
+      
+      // Fechar modal e limpar
+      setShowNovaEmpresaModal(false);
+      setNovaEmpresaNome('');
+      alert(`Empresa "${novaEmpresaNome}" criada com sucesso! 🏢`);
     } catch (error) {
       console.error('Erro ao criar empresa:', error);
       alert('Erro ao criar empresa: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Funções para criação rápida de Gênero
+  const handleCriarNovoGenero = async () => {
+    if (!novoGeneroNome.trim()) {
+      alert('Por favor, digite o nome do gênero!');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await generoService.create({ 
+        nome: novoGeneroNome,
+        descricao: novoGeneroDescricao 
+      });
+      console.log('✅ Novo gênero criado:', response.data);
+      
+      // Recarregar lista de gêneros
+      const generosResponse = await generoService.getAll();
+      setGeneros(generosResponse.data);
+      
+      // Adicionar automaticamente o novo gênero à seleção
+      const novoGenero = response.data;
+      setJogoForm({
+        ...jogoForm, 
+        generoIds: [...jogoForm.generoIds, novoGenero.id.toString()]
+      });
+      
+      // Fechar modal e limpar
+      setShowNovoGeneroModal(false);
+      setNovoGeneroNome('');
+      setNovoGeneroDescricao('');
+      alert(`Gênero "${novoGeneroNome}" criado com sucesso! 🎯`);
+    } catch (error) {
+      console.error('Erro ao criar gênero:', error);
+      alert('Erro ao criar gênero: ' + (error.response?.data?.message || error.message));
     } finally {
       setLoading(false);
     }
@@ -166,18 +318,6 @@ const Admin = () => {
             🎮 Jogos
           </button>
           <button 
-            className={activeTab === 'generos' ? 'tab-active' : ''}
-            onClick={() => setActiveTab('generos')}
-          >
-            🎯 Gêneros
-          </button>
-          <button 
-            className={activeTab === 'empresas' ? 'tab-active' : ''}
-            onClick={() => setActiveTab('empresas')}
-          >
-            🏢 Empresas
-          </button>
-          <button 
             className={activeTab === 'atualizacoes' ? 'tab-active' : ''}
             onClick={() => setActiveTab('atualizacoes')}
           >
@@ -188,227 +328,349 @@ const Admin = () => {
         <div className="admin-content">
           {/* FORMULÁRIO DE JOGOS */}
           {activeTab === 'jogos' && (
-            <form onSubmit={handleJogoSubmit} className="admin-form">
-              <h2>Cadastrar Novo Jogo</h2>
-              
-              <div className="form-group">
-                <label>Nome do Jogo *</label>
-                <input
-                  type="text"
-                  value={jogoForm.nome}
-                  onChange={(e) => setJogoForm({...jogoForm, nome: e.target.value})}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Descrição *</label>
-                <textarea
-                  value={jogoForm.descricao}
-                  onChange={(e) => setJogoForm({...jogoForm, descricao: e.target.value})}
-                  rows="4"
-                  required
-                />
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Preço (R$) *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={jogoForm.preco}
-                    onChange={(e) => setJogoForm({...jogoForm, preco: e.target.value})}
-                    required
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Desconto (%)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={jogoForm.desconto}
-                    onChange={(e) => setJogoForm({...jogoForm, desconto: e.target.value})}
-                  />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label>URL da Imagem</label>
-                <input
-                  type="url"
-                  value={jogoForm.imagemUrl}
-                  onChange={(e) => setJogoForm({...jogoForm, imagemUrl: e.target.value})}
-                  placeholder="https://exemplo.com/imagem.jpg"
-                />
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>ID do Gênero *</label>
-                  <input
-                    type="number"
-                    value={jogoForm.generoId}
-                    onChange={(e) => setJogoForm({...jogoForm, generoId: e.target.value})}
-                    required
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>ID da Empresa *</label>
-                  <input
-                    type="number"
-                    value={jogoForm.empresaId}
-                    onChange={(e) => setJogoForm({...jogoForm, empresaId: e.target.value})}
-                    required
-                  />
-                </div>
-              </div>
-
-              <button type="submit" className="submit-btn" disabled={loading}>
-                {loading ? 'Cadastrando...' : '✅ Cadastrar Jogo'}
-              </button>
-            </form>
-          )}
-
-          {/* FORMULÁRIO DE GÊNEROS */}
-          {activeTab === 'generos' && (
-            <form onSubmit={handleGeneroSubmit} className="admin-form">
-              <h2>Cadastrar Novo Gênero</h2>
-              
-              <div className="form-group">
-                <label>Nome do Gênero *</label>
-                <input
-                  type="text"
-                  value={generoForm.nome}
-                  onChange={(e) => setGeneroForm({...generoForm, nome: e.target.value})}
-                  placeholder="Ex: Ação, RPG, Aventura"
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Descrição</label>
-                <textarea
-                  value={generoForm.descricao}
-                  onChange={(e) => setGeneroForm({...generoForm, descricao: e.target.value})}
-                  rows="4"
-                  placeholder="Descreva o gênero..."
-                />
-              </div>
-
-              <button type="submit" className="submit-btn" disabled={loading}>
-                {loading ? 'Cadastrando...' : '✅ Cadastrar Gênero'}
-              </button>
-            </form>
-          )}
-
-          {/* LISTA DE GÊNEROS */}
-          {activeTab === 'generos' && generos.length > 0 && (
-            <div className="data-list">
-              <h3>📋 Gêneros Cadastrados ({generos.length})</h3>
-              <div className="list-grid">
-                {generos.map(genero => (
-                  <div key={genero.id} className="list-item">
-                    <strong>ID {genero.id}:</strong> {genero.nome}
+            <>
+              <form onSubmit={handleJogoSubmit} className="admin-form">
+                <h2>{editingJogo ? '✏️ Editar Jogo' : '➕ Cadastrar Novo Jogo'}</h2>
+                
+                {editingJogo && (
+                  <div className="editing-banner">
+                    <span>Editando: <strong>{editingJogo.nome}</strong></span>
+                    <button type="button" onClick={handleCancelEdit} className="cancel-edit-btn">
+                      ✕ Cancelar Edição
+                    </button>
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
+                )}
 
-          {/* FORMULÁRIO DE EMPRESAS */}
-          {activeTab === 'empresas' && (
-            <form onSubmit={handleEmpresaSubmit} className="admin-form">
-              <h2>Cadastrar Nova Empresa</h2>
-              
-              <div className="form-group">
-                <label>Nome da Empresa *</label>
-                <input
-                  type="text"
-                  value={empresaForm.nome}
-                  onChange={(e) => setEmpresaForm({...empresaForm, nome: e.target.value})}
-                  placeholder="Ex: Valve, Mojang Studios, Re-Logic"
-                  required
-                />
-              </div>
+                <div className="form-group">
+                  <label>Nome do Jogo *</label>
+                  <input
+                    type="text"
+                    value={jogoForm.nome}
+                    onChange={(e) => setJogoForm({...jogoForm, nome: e.target.value})}
+                    required
+                  />
+                </div>
 
-              <button type="submit" className="submit-btn" disabled={loading}>
-                {loading ? 'Cadastrando...' : '✅ Cadastrar Empresa'}
-              </button>
-            </form>
-          )}
+                <div className="form-group">
+                  <label>Descrição *</label>
+                  <textarea
+                    value={jogoForm.descricao}
+                    onChange={(e) => setJogoForm({...jogoForm, descricao: e.target.value})}
+                    rows="4"
+                    required
+                  />
+                </div>
 
-          {/* LISTA DE EMPRESAS */}
-          {activeTab === 'empresas' && empresas.length > 0 && (
-            <div className="data-list">
-              <h3>📋 Empresas Cadastradas ({empresas.length})</h3>
-              <div className="list-grid">
-                {empresas.map(empresa => (
-                  <div key={empresa.id} className="list-item">
-                    <strong>ID {empresa.id}:</strong> {empresa.nome}
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Preço (R$) *</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={jogoForm.preco}
+                      onChange={(e) => setJogoForm({...jogoForm, preco: e.target.value})}
+                      required
+                    />
                   </div>
-                ))}
-              </div>
-            </div>
+
+                  <div className="form-group">
+                    <label>Desconto (%)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={jogoForm.desconto}
+                      onChange={(e) => setJogoForm({...jogoForm, desconto: e.target.value})}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>URL da Imagem *</label>
+                  <input
+                    type="url"
+                    value={jogoForm.imagemUrl}
+                    onChange={(e) => setJogoForm({...jogoForm, imagemUrl: e.target.value})}
+                    placeholder="https://exemplo.com/imagem.jpg"
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <div className="form-header-with-button">
+                    <label>Gêneros * (Segure Ctrl/Cmd para selecionar múltiplos)</label>
+                    <button 
+                      type="button" 
+                      className="add-new-btn"
+                      onClick={() => setShowNovoGeneroModal(true)}
+                    >
+                      + Novo Gênero
+                    </button>
+                  </div>
+                  <select
+                    multiple
+                    value={jogoForm.generoIds}
+                    onChange={(e) => {
+                      const selectedIds = Array.from(e.target.selectedOptions, option => option.value);
+                      setJogoForm({...jogoForm, generoIds: selectedIds});
+                    }}
+                    required
+                    size="5"
+                    className="multi-select"
+                  >
+                    {generos.map(genero => (
+                      <option key={genero.id} value={genero.id}>
+                        {genero.nome}
+                      </option>
+                    ))}
+                  </select>
+                  <small className="form-hint">
+                    ✅ Múltiplos gêneros suportados!
+                    <br />
+                    Selecionados: {jogoForm.generoIds.length > 0 
+                      ? generos.filter(g => jogoForm.generoIds.includes(g.id.toString())).map(g => g.nome).join(', ')
+                      : 'Nenhum'
+                    }
+                  </small>
+                </div>
+
+                <div className="form-group">
+                  <div className="form-header-with-button">
+                    <label>Desenvolvedora *</label>
+                    <button 
+                      type="button" 
+                      className="add-new-btn"
+                      onClick={() => setShowNovaEmpresaModal(true)}
+                    >
+                      + Nova Empresa
+                    </button>
+                  </div>
+                  <select
+                    value={jogoForm.desenvolvedoraId}
+                    onChange={(e) => setJogoForm({...jogoForm, desenvolvedoraId: e.target.value})}
+                    required
+                  >
+                    <option value="">Selecione uma desenvolvedora</option>
+                    {empresas.map(empresa => (
+                      <option key={empresa.id} value={empresa.id}>
+                        {empresa.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <button type="submit" className="submit-btn" disabled={loading}>
+                  {loading ? 'Salvando...' : (editingJogo ? '✅ Atualizar Jogo' : '✅ Cadastrar Jogo')}
+                </button>
+              </form>
+
+              {/* LISTA DE JOGOS */}
+              {jogos.length > 0 && (
+                <div className="data-list">
+                  <h3>📋 Jogos Cadastrados ({jogos.length})</h3>
+                  <div className="jogos-list">
+                    {jogos.map(jogo => (
+                      <div key={jogo.id} className="jogo-card">
+                        <button 
+                          className="delete-btn-x"
+                          onClick={() => handleDeleteJogo(jogo.id)}
+                          title="Deletar jogo"
+                        >
+                          ✕
+                        </button>
+                        {jogo.imagemUrl && (
+                          <img src={jogo.imagemUrl} alt={jogo.nome} className="jogo-thumb" />
+                        )}
+                        <div className="jogo-info">
+                          <h4>{jogo.nome}</h4>
+                          <p className="jogo-price">R$ {jogo.preco?.toFixed(2)}</p>
+                          {jogo.desconto > 0 && <span className="jogo-discount">-{jogo.desconto}%</span>}
+                          <p className="jogo-dev">{jogo.desenvolvedora?.nome}</p>
+                          <div className="jogo-genres">
+                            {jogo.generos?.map(g => (
+                              <span key={g.id} className="genre-tag">{g.nome}</span>
+                            ))}
+                          </div>
+                          <button 
+                            className="edit-btn"
+                            onClick={() => handleEditJogo(jogo)}
+                          >
+                            ✏️ Editar
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           {/* FORMULÁRIO DE ATUALIZAÇÕES */}
           {activeTab === 'atualizacoes' && (
-            <form onSubmit={handleAtualizacaoSubmit} className="admin-form">
-              <h2>Cadastrar Nova Atualização</h2>
-              
-              <div className="form-group">
-                <label>Versão *</label>
-                <input
-                  type="text"
-                  value={atualizacaoForm.versao}
-                  onChange={(e) => setAtualizacaoForm({...atualizacaoForm, versao: e.target.value})}
-                  placeholder="Ex: 1.0.0, 2.3.1"
-                  required
-                />
-              </div>
+            <>
+              <form onSubmit={handleAtualizacaoSubmit} className="admin-form">
+                <h2>Cadastrar Nova Atualização</h2>
+                
+                <div className="form-group">
+                  <label>Versão *</label>
+                  <input
+                    type="text"
+                    value={atualizacaoForm.versao}
+                    onChange={(e) => setAtualizacaoForm({...atualizacaoForm, versao: e.target.value})}
+                    placeholder="Ex: 1.0.0, 2.3.1"
+                    required
+                  />
+                </div>
 
-              <div className="form-group">
-                <label>Descrição *</label>
-                <textarea
-                  value={atualizacaoForm.descricao}
-                  onChange={(e) => setAtualizacaoForm({...atualizacaoForm, descricao: e.target.value})}
-                  rows="4"
-                  placeholder="Descreva as mudanças desta atualização..."
-                  required
-                />
-              </div>
+                <div className="form-group">
+                  <label>Descrição *</label>
+                  <textarea
+                    value={atualizacaoForm.descricao}
+                    onChange={(e) => setAtualizacaoForm({...atualizacaoForm, descricao: e.target.value})}
+                    rows="4"
+                    placeholder="Descreva as mudanças desta atualização..."
+                    required
+                  />
+                </div>
 
-              <div className="form-group">
-                <label>Data de Lançamento *</label>
-                <input
-                  type="date"
-                  value={atualizacaoForm.dataLancamento}
-                  onChange={(e) => setAtualizacaoForm({...atualizacaoForm, dataLancamento: e.target.value})}
-                  required
-                />
-              </div>
+                <div className="form-group">
+                  <label>Data de Lançamento *</label>
+                  <input
+                    type="date"
+                    value={atualizacaoForm.dataLancamento}
+                    onChange={(e) => setAtualizacaoForm({...atualizacaoForm, dataLancamento: e.target.value})}
+                    required
+                  />
+                </div>
 
-              <div className="form-group">
-                <label>ID do Jogo *</label>
-                <input
-                  type="number"
-                  value={atualizacaoForm.jogoId}
-                  onChange={(e) => setAtualizacaoForm({...atualizacaoForm, jogoId: e.target.value})}
-                  required
-                />
-              </div>
+                <div className="form-group">
+                  <label>Selecione o Jogo *</label>
+                  {jogos.length > 0 ? (
+                    <div className="jogos-selection-grid">
+                      {jogos.map(jogo => (
+                        <div 
+                          key={jogo.id}
+                          className={`jogo-selection-card ${atualizacaoForm.jogoId === jogo.id.toString() ? 'selected' : ''}`}
+                          onClick={() => setAtualizacaoForm({...atualizacaoForm, jogoId: jogo.id.toString()})}
+                        >
+                          {jogo.imagemUrl && (
+                            <img src={jogo.imagemUrl} alt={jogo.nome} className="jogo-selection-img" />
+                          )}
+                          <div className="jogo-selection-info">
+                            <strong>{jogo.nome}</strong>
+                            <span className="jogo-id">ID: {jogo.id}</span>
+                          </div>
+                          {atualizacaoForm.jogoId === jogo.id.toString() && (
+                            <div className="selected-badge">✓</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="no-data-message">Nenhum jogo cadastrado ainda. Cadastre um jogo primeiro!</p>
+                  )}
+                </div>
 
-              <button type="submit" className="submit-btn" disabled={loading}>
-                {loading ? 'Cadastrando...' : '✅ Cadastrar Atualização'}
-              </button>
-            </form>
+                <button type="submit" className="submit-btn" disabled={loading || !atualizacaoForm.jogoId}>
+                  {loading ? 'Cadastrando...' : '✅ Cadastrar Atualização'}
+                </button>
+              </form>
+            </>
           )}
         </div>
       </div>
+
+      {/* Modal para Nova Empresa */}
+      {showNovaEmpresaModal && (
+        <div className="modal-overlay" onClick={() => setShowNovaEmpresaModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h3>🏢 Criar Nova Empresa</h3>
+            
+            <div className="form-group">
+              <label>Nome da Empresa *</label>
+              <input
+                type="text"
+                value={novaEmpresaNome}
+                onChange={(e) => setNovaEmpresaNome(e.target.value)}
+                placeholder="Ex: CD Projekt Red, Valve, Mojang"
+                autoFocus
+              />
+            </div>
+
+            <div className="modal-actions">
+              <button 
+                className="btn-cancel" 
+                onClick={() => {
+                  setShowNovaEmpresaModal(false);
+                  setNovaEmpresaNome('');
+                }}
+                disabled={loading}
+              >
+                Cancelar
+              </button>
+              <button 
+                className="btn-confirm" 
+                onClick={handleCriarNovaEmpresa}
+                disabled={loading}
+              >
+                {loading ? 'Criando...' : 'Criar Empresa'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para Novo Gênero */}
+      {showNovoGeneroModal && (
+        <div className="modal-overlay" onClick={() => setShowNovoGeneroModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h3>🎯 Criar Novo Gênero</h3>
+            
+            <div className="form-group">
+              <label>Nome do Gênero *</label>
+              <input
+                type="text"
+                value={novoGeneroNome}
+                onChange={(e) => setNovoGeneroNome(e.target.value)}
+                placeholder="Ex: Ação, RPG, Aventura"
+                autoFocus
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Descrição (opcional)</label>
+              <textarea
+                value={novoGeneroDescricao}
+                onChange={(e) => setNovoGeneroDescricao(e.target.value)}
+                rows="3"
+                placeholder="Descreva o gênero..."
+              />
+            </div>
+
+            <div className="modal-actions">
+              <button 
+                className="btn-cancel" 
+                onClick={() => {
+                  setShowNovoGeneroModal(false);
+                  setNovoGeneroNome('');
+                  setNovoGeneroDescricao('');
+                }}
+                disabled={loading}
+              >
+                Cancelar
+              </button>
+              <button 
+                className="btn-confirm" 
+                onClick={handleCriarNovoGenero}
+                disabled={loading}
+              >
+                {loading ? 'Criando...' : 'Criar Gênero'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

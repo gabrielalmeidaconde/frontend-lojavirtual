@@ -6,6 +6,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Orders from './pages/Orders';
 import Admin from './pages/Admin';
+import GameDetails from './pages/GameDetails';
 import './App.css';
 
 // Componente para proteger rotas que requerem autenticação
@@ -33,6 +34,7 @@ function App() {
           <main className="main-content">
             <Routes>
               <Route path="/" element={<Home />} />
+              <Route path="/game/:id" element={<GameDetails />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route
