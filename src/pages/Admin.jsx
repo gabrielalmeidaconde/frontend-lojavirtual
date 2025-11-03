@@ -36,9 +36,9 @@ const Admin = () => {
   const [atualizacaoForm, setAtualizacaoForm] = useState({
     versao: '',
     descricao: '',
-    dataLancamento: '',
     jogoId: ''
   });
+  const [jogoSelecionado, setJogoSelecionado] = useState(null);
 
   // Carregar dados ao mudar de aba
   useEffect(() => {
@@ -281,21 +281,65 @@ const Admin = () => {
     }
   };
 
+  // Função auxiliar para incrementar versão (patch)
+  const incrementarVersaoPatch = (versaoAtual) => {
+    try {
+      if (!versaoAtual) return '1.0.1';
+      const partes = versaoAtual.split('.');
+      if (partes.length !== 3) return '1.0.1';
+      
+      const major = parseInt(partes[0]);
+      const minor = parseInt(partes[1]);
+      const patch = parseInt(partes[2]) + 1; // Incrementa o patch
+      
+      return `${major}.${minor}.${patch}`;
+    } catch (error) {
+      console.error('Erro ao incrementar versão:', error);
+      return '1.0.1';
+    }
+  };
+
+  // Handler para selecionar jogo na lista de atualizações
+  const handleSelectJogoForAtualizacao = (jogo) => {
+    console.log('🎮 Jogo selecionado para atualização:', jogo);
+    console.log('📦 Última versão:', jogo.ultimaVersao);
+    
+    setJogoSelecionado(jogo);
+    
+    // Sugerir próxima versão automaticamente
+    const proximaVersao = incrementarVersaoPatch(jogo.ultimaVersao || '1.0.0');
+    console.log('✨ Próxima versão sugerida:', proximaVersao);
+    
+    setAtualizacaoForm({
+      ...atualizacaoForm,
+      jogoId: jogo.id.toString(),
+      versao: proximaVersao // Preenche automaticamente
+    });
+    
+    // Scroll para o topo do formulário
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleAtualizacaoSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
+      // Usa a data/hora UTC atual automaticamente
+      const dataAtual = new Date().toISOString();
+      
       await atualizacaoService.create({
-        ...atualizacaoForm,
+        versao: atualizacaoForm.versao,
+        descricao: atualizacaoForm.descricao,
+        data: dataAtual, // Envia data UTC atual
         jogoId: parseInt(atualizacaoForm.jogoId)
       });
       alert('Atualização criada com sucesso! 🔄');
       setAtualizacaoForm({
         versao: '',
         descricao: '',
-        dataLancamento: '',
         jogoId: ''
       });
+      setJogoSelecionado(null); // Limpa o jogo selecionado
       loadData(); // Recarrega a lista
     } catch (error) {
       console.error('Erro ao criar atualização:', error);
@@ -513,14 +557,24 @@ const Admin = () => {
                 <h2>Cadastrar Nova Atualização</h2>
                 
                 <div className="form-group">
-                  <label>Versão *</label>
+                  <label>
+                    Versão *
+                    {jogoSelecionado && jogoSelecionado.ultimaVersao && (
+                      <span className="version-hint">
+                        📦 Última versão: <strong>{jogoSelecionado.ultimaVersao}</strong>
+                      </span>
+                    )}
+                  </label>
                   <input
                     type="text"
                     value={atualizacaoForm.versao}
                     onChange={(e) => setAtualizacaoForm({...atualizacaoForm, versao: e.target.value})}
-                    placeholder="Ex: 1.0.0, 2.3.1"
+                    placeholder="Ex: 1.0.1, 2.0.0"
                     required
                   />
+                  <span className="form-hint">
+                    💡 Versão sugerida automaticamente. Você pode alterar manualmente (ex: 2.0.0 para major update).
+                  </span>
                 </div>
 
                 <div className="form-group">
@@ -535,16 +589,6 @@ const Admin = () => {
                 </div>
 
                 <div className="form-group">
-                  <label>Data de Lançamento *</label>
-                  <input
-                    type="date"
-                    value={atualizacaoForm.dataLancamento}
-                    onChange={(e) => setAtualizacaoForm({...atualizacaoForm, dataLancamento: e.target.value})}
-                    required
-                  />
-                </div>
-
-                <div className="form-group">
                   <label>Selecione o Jogo *</label>
                   {jogos.length > 0 ? (
                     <div className="jogos-selection-grid">
@@ -552,7 +596,7 @@ const Admin = () => {
                         <div 
                           key={jogo.id}
                           className={`jogo-selection-card ${atualizacaoForm.jogoId === jogo.id.toString() ? 'selected' : ''}`}
-                          onClick={() => setAtualizacaoForm({...atualizacaoForm, jogoId: jogo.id.toString()})}
+                          onClick={() => handleSelectJogoForAtualizacao(jogo)}
                         >
                           {jogo.imagemUrl && (
                             <img src={jogo.imagemUrl} alt={jogo.nome} className="jogo-selection-img" />
@@ -560,6 +604,9 @@ const Admin = () => {
                           <div className="jogo-selection-info">
                             <strong>{jogo.nome}</strong>
                             <span className="jogo-id">ID: {jogo.id}</span>
+                            {jogo.ultimaVersao && (
+                              <span className="jogo-version">v{jogo.ultimaVersao}</span>
+                            )}
                           </div>
                           {atualizacaoForm.jogoId === jogo.id.toString() && (
                             <div className="selected-badge">✓</div>

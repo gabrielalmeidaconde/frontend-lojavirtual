@@ -33,12 +33,19 @@ const GameDetails = () => {
       // Carregar atualizações do jogo
       try {
         const atualizacoesResponse = await atualizacaoService.getAll();
-        // Filtrar atualizações deste jogo
-        const jogoAtualizacoes = atualizacoesResponse.data.filter(
-          atualiz => atualiz.jogo?.id === parseInt(id)
-        );
-        // Ordenar por data (mais recente primeiro)
-        jogoAtualizacoes.sort((a, b) => new Date(b.dataLancamento) - new Date(a.dataLancamento));
+        console.log('🔄 Todas as atualizações recebidas:', atualizacoesResponse.data);
+        console.log('🎯 ID do jogo atual:', id, 'tipo:', typeof id);
+        
+        // Filtrar atualizações deste jogo (backend retorna jogoId diretamente)
+        const jogoAtualizacoes = atualizacoesResponse.data.filter(atualiz => {
+          console.log('📋 Atualização:', atualiz.id, 'jogoId:', atualiz.jogoId, 'tipo:', typeof atualiz.jogoId);
+          return atualiz.jogoId === parseInt(id);
+        });
+        
+        console.log('✅ Atualizações filtradas:', jogoAtualizacoes);
+        
+        // Ordenar por data (mais recente primeiro) - backend usa 'data' não 'dataLancamento'
+        jogoAtualizacoes.sort((a, b) => new Date(b.data) - new Date(a.data));
         setAtualizacoes(jogoAtualizacoes);
       } catch (error) {
         console.error('Erro ao carregar atualizações:', error);
@@ -105,11 +112,12 @@ const GameDetails = () => {
   };
 
   const formatarData = (data) => {
-    return new Date(data).toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric'
-    });
+    // Converte UTC para timezone local do usuário e exibe em dd/mm/yyyy
+    const date = new Date(data);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
   };
 
   if (loading) {
@@ -221,9 +229,11 @@ const GameDetails = () => {
               {atualizacoes.map(atualizacao => (
                 <div key={atualizacao.id} className="update-card">
                   <div className="update-header">
-                    <span className="update-version">v{atualizacao.versao}</span>
+                    <span className="update-version">
+                      {atualizacao.versao ? `v${atualizacao.versao}` : `Atualização #${atualizacao.id}`}
+                    </span>
                     <span className="update-date">
-                      {formatarData(atualizacao.dataLancamento)}
+                      {formatarData(atualizacao.data)}
                     </span>
                   </div>
                   <div className="update-description">
