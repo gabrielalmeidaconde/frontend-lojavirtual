@@ -40,6 +40,12 @@ export const jogoService = {
   
   // POST /jogos/{id}/comprar - Comprar um jogo (recebe id do jogo e usuarioemail como query param)
   comprar: (id, usuarioemail) => api.post(`/jogos/${id}/comprar?usuarioemail=${usuarioemail}`),
+
+  // GET /jogos/comprados?usuarioemail=... - Listar jogos comprados por um usuário (Meus Pedidos)
+  listComprados: (usuarioemail) => api.get(`/jogos/comprados?usuarioemail=${usuarioemail}`),
+
+  // GET /jogos/{id}/possui?usuarioemail=... - Verifica se usuário possui o jogo
+  usuarioPossui: (id, usuarioemail) => api.get(`/jogos/${id}/possui?usuarioemail=${usuarioemail}`),
 };
 
 // ==================== GÊNEROS ====================
