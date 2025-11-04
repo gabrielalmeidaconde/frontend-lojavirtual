@@ -6,11 +6,23 @@ Uma loja virtual moderna de jogos desenvolvida com React + Vite, integrada com b
 
 ## 🚀 Como Rodar o Projeto
 
-### Pré-requisitos
-- Node.js instalado (v16 ou superior)
-- Backend rodando em `http://localhost:8080`
+### Backend (Spring Boot + MySQL)
 
-### Instalação e Execução
+1. **Baixar a imagem Docker:**
+   ```bash
+   docker pull gabirubr/lojavirtual
+   ```
+
+2. **Rodar o container:**
+   ```bash
+   docker run --rm -p 8080:8080 -e MYSQL_PASSWORD=senhaaqui --name lojavirtual gabirubr/lojavirtual
+   ```
+
+3. **Verificar:**
+   - Backend estará disponível em `http://localhost:8080`
+   - API estará pronta para receber requisições
+
+### Frontend (React + Vite)
 
 1. **Instalar as dependências:**
    ```bash
@@ -59,31 +71,7 @@ O build será gerado na pasta `dist/`.
 - **Context API** - Gerenciamento de estado global
 - **CSS3** - Estilização moderna com gradientes e animações
 
-## 📁 Estrutura do Projeto
-
-```
-src/
-├── components/            # Componentes reutilizáveis
-│   ├── Header.jsx        # Cabeçalho com navegação e auth
-│   └── GameCard.jsx      # Card de jogo com compra
-├── pages/                # Páginas da aplicação
-│   ├── Home.jsx          # Listagem de jogos
-│   ├── GameDetails.jsx   # Detalhes do jogo + atualizações
-│   ├── Login.jsx         # Página de login
-│   ├── Register.jsx      # Página de cadastro
-│   ├── Cart.jsx          # Carrinho de compras
-│   ├── Orders.jsx        # Histórico de pedidos
-│   └── Admin.jsx         # Painel administrativo
-├── context/              # Contextos React
-│   ├── AuthContext.jsx   # Gerenciamento de autenticação
-│   └── CartContext.jsx   # Gerenciamento do carrinho
-├── services/             # Serviços de API
-│   └── api.js            # Configuração do Axios e endpoints
-├── App.jsx               # Componente principal e rotas
-└── main.jsx              # Ponto de entrada
-```
-
-## 🔌 Endpoints da API
+##  Endpoints da API
 
 O frontend se conecta aos seguintes endpoints do backend:
 
