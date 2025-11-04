@@ -15,10 +15,29 @@ const GameDetails = () => {
   const [showModal, setShowModal] = useState(false);
   const [purchaseSuccess, setPurchaseSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [usuarioPossui, setUsuarioPossui] = useState(false);
 
   useEffect(() => {
     loadGameDetails();
   }, [id]);
+
+  useEffect(() => {
+    checkOwnership();
+  }, [id, user]);
+
+  const checkOwnership = async () => {
+    if (!user?.email || !id) {
+      setUsuarioPossui(false);
+      return;
+    }
+    try {
+      const { data } = await jogoService.usuarioPossui(id, user.email);
+      setUsuarioPossui(data);
+    } catch (error) {
+      console.error('Erro ao verificar posse do jogo:', error);
+      setUsuarioPossui(false);
+    }
+  };
 
   const loadGameDetails = async () => {
     try {
@@ -209,9 +228,15 @@ const GameDetails = () => {
               )}
             </div>
 
-            <button onClick={handlePlayGame} className="buy-btn-large">
-              💎 Comprar Agora
-            </button>
+            {!usuarioPossui ? (
+              <button onClick={handlePlayGame} className="buy-btn-large">
+                💎 Comprar Agora
+              </button>
+            ) : (
+              <div className="already-owned">
+                <span className="owned-badge">✅ Você já possui este jogo</span>
+              </div>
+            )}
           </div>
         </div>
 

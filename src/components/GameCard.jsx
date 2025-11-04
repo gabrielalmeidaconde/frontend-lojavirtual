@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import './GameCard.css';
 
-const GameCard = ({ game }) => {
+const GameCard = ({ game, showBuyButton = true }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [buying, setBuying] = useState(false);
@@ -104,13 +104,15 @@ const GameCard = ({ game }) => {
             >
               📖 Detalhes
             </button>
-            <button 
-              className="buy-btn" 
-              onClick={handleBuyClick}
-              disabled={buying}
-            >
-              💎 Comprar
-            </button>
+            {showBuyButton && (
+              <button 
+                className="buy-btn" 
+                onClick={handleBuyClick}
+                disabled={buying}
+              >
+                💎 Comprar
+              </button>
+            )}
           </div>
         </div>
       </div>
